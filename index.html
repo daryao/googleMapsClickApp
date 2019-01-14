@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDTpkGTVCjtFNC_fFfjJToaoIw4oc_0Dhk&callback=initMap"
+  type="text/javascript"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <title>Map Click Tracker</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <style>
+      #map {
+        height: 95vh;
+      }
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 1%;
+      }
+      #lastClick {
+        display: none;
+      }
+      .userAction{
+          margin: 1rem 0;
+      }
+      .user-buttons input {
+        border-radius: 0;
+      }
+      h1 {
+        color: #17a2b8;
+      }
+      .info {
+        margin-top: 8%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-content">
+      <div class="row">
+          <div class="col-md-8 col-sm-12">
+          <h1>Map Click Tracker</h1>
+          <h3>Click on the map to add a marker!</h3>
+              <div id="map"></div>
+          </div>
+          <div class="col-md-4 col-sm-12 info">
+              <div>
+                  <p>Click on the map and we will add the coordinates to the list.</p>
+              </div>
+              <div class="user-buttons">
+                <input onclick="clearMarkers();" type="button" class="btn btn-primary userAction" value="Remove Markers">
+                 <input onclick="recentreMap();" type="button" class="btn btn-info userAction" value="Recentre on Calgary">
+               </div>
+               <div id="lastClick" class="alert alert-primary" role="alert">
+               </div> 
+               <h3>User Clicks</h3>
+               <div id="clickTable" class="table-responsive">
+                <table class="table">
+                  <thead>
+                   <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">Latitude</th>
+                    <th scope="col">Longitude</th>
+                   </tr>
+                  </thead>
+                  <tbody>
+                    </tbody>
+                  </table>
+                </div> 
+              </div>
+          </div>
+      </div>
+
+    
+    <script>
+      var map;
+      var markers = [];
+      var myLatlng = {lat: 51.0486, lng: -114.0708};
+      var mongoAPIkey = 'yPKIumVRySRkfHNwMPC8rrCbYYJED7mi';
+
+      $(function() {
+        loadClicksTable();
+        initMap();
+      });
+
+      function loadClicksTable() {
+        $.get( "https://api.mlab.com/api/1/databases/mapclicks/collections/userclicks?apiKey=" + mongoAPIkey, function( data ) {
+          data.sort(function(a,b){
+            return new Date(b.clickTime) - new Date(a.clickTime);
+          });
+          data.forEach(function(e) {
+            var markup = "<tr><td>" + e.clickTime + "</td><td>" + e.latitude + "</td><td>" + e.latitude + "</td></tr>";
+              $("#clickTable tbody").append(markup);
+            });
+        });
+      }
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 15,
+          center: myLatlng,
+          label: 'Calgary Downtown' 
+        });
+
+        map.addListener('click', function(e) {
+          addMarker(e.latLng, map);
+          manageClick(e);
+        });
+
+        addMarker(myLatlng, map);
+      }
+
+      function updateClickTable(clickTime,latitude,longitude) {
+        var markup = "<tr><td>" + clickTime + "</td><td>" + latitude + "</td><td>" + longitude + "</td></tr>";
+        $(markup).prependTo("table > tbody");
+      }
+
+      function recordClick(latitude,longitude) {
+        var clickTime = (new Date()).toUTCString();
+        $.ajax( { url: "https://api.mlab.com/api/1/databases/mapclicks/collections/userclicks?apiKey=" + mongoAPIkey,
+          data: JSON.stringify( 
+            { 
+              "clickTime" : clickTime,
+              "latitude" : latitude,
+              "longitude" : longitude 
+            } 
+          ),
+          type: "POST",
+          contentType: "application/json" } );
+
+        updateClickTable(clickTime,latitude,longitude);
+        }
+
+      function manageClick(e) {
+        var latitude = e.latLng.lat().toFixed(3) ;
+        var longitude = e.latLng.lng().toFixed(3) ;
+        $('#lastClick').html('Your last click: latitude ' + latitude + ', longitude: ' + longitude);
+        $('#lastClick').css('display','block');
+        recordClick(latitude,longitude);
+      }
+
+      function recentreMap() {
+        map.panTo(myLatlng);
+      }
+
+      function addMarker(location, map) {
+        var marker = new google.maps.Marker({
+          position: location,
+          animation: google.maps.Animation.DROP,
+          map: map
+        });
+        map.panTo(location);
+        markers.push(marker);
+        marker.addListener('click', toggleBounce);
+      }
+
+      function setMapOnAll(map) {
+        for (var i = 0; i < markers.length; i++) {
+          markers[i].setMap(map);
+        }
+      }
+
+      function clearMarkers() {
+        setMapOnAll(null);
+      }
+
+      function toggleBounce() {
+        if (marker.getAnimation() !== null) {
+          marker.setAnimation(null);
+        } else {
+          marker.setAnimation(google.maps.Animation.BOUNCE);
+        }
+      }
+
+    </script>
+  </body>
+</html>
