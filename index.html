@@ -88,7 +88,7 @@
             return new Date(b.clickTime) - new Date(a.clickTime);
           });
           data.forEach(function(e) {
-            var markup = "<tr><td>" + e.clickTime + "</td><td>" + e.latitude + "</td><td>" + e.latitude + "</td></tr>";
+            var markup = "<tr><td>" + e.clickTime + "</td><td>" + e.latitude + "</td><td>" + e.longitude + "</td></tr>";
               $("#clickTable tbody").append(markup);
             });
         });
